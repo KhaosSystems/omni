@@ -37,6 +37,17 @@ func NewOmniService(db *sql.DB) (*OmniService, error) {
 	return &OmniService{db: db}, nil
 }
 
+// GetTask returns a task from the database.
+func (s *OmniService) GetTask(uuid uuid.UUID) (Task, error) {
+	var task Task
+	err := s.db.QueryRow("SELECT * FROM tasks WHERE uuid = $1", uuid).Scan(&task.UUID, &task.Title, &task.Description)
+	if err != nil {
+		return task, err
+	}
+
+	return task, nil
+}
+
 // CreateTask creates a new task in the database.
 func (s *OmniService) CreateTask(title, description string) (uuid.UUID, error) {
 	// Generate a new UUID for the task.

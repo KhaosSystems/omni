@@ -7,12 +7,13 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"github.com/khaossystems/omni-server/api"
 	"github.com/khaossystems/omni-server/internal/omni"
 	"github.com/lib/pq"
 )
@@ -97,66 +98,61 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 	}))
 
 	router.Route("/v1", func(v1 chi.Router) {
+		// Get task.
+		v1.Get("/tasks/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+			// Get the UUID from the URL parameters.
+			uuidStr := chi.URLParam(r, "uuid")
+
+			// Parse the UUID from the URL parameters.
+			uuid, err := uuid.Parse(uuidStr)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Get the resource query parameters from the request.
+			_, err = api.ParseResourceQueryParams(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Get the task from the service.
+			task, err := service.GetTask(uuid)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+
+			api.WriteResourceResponse(w, http.StatusOK, task, nil)
+		})
 		// List tasks.
 		v1.Get("/tasks", func(w http.ResponseWriter, r *http.Request) {
-			// Parse the query parameters (int)
-			limitStr := r.URL.Query().Get("limit")
-			offsetStr := r.URL.Query().Get("offset")
-
-			if limitStr == "" {
-				limitStr = "10"
-			}
-
-			if offsetStr == "" {
-				offsetStr = "0"
-			}
-
-			// Convert limit and offset to integers, with error handling
-			limit, err := strconv.Atoi(limitStr)
+			// Parse the meta query parameters from the request.
+			metaQueryParams, err := api.ParseMetaQueryParams(r)
 			if err != nil {
-				http.Error(w, "Invalid limit parameter", http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
 
-			offset, err := strconv.Atoi(offsetStr)
+			// Parse the collection query parameters from the request.
+			collectionQueryParams, err := api.ParseCollectionQueryParams(r)
 			if err != nil {
-				http.Error(w, "Invalid offset parameter", http.StatusBadRequest)
+				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-
-			// Query parameter to ignore links and query metadata.
-			meta := r.URL.Query().Get("meta")
 
 			// Get the list of tasks from the service.
 			res, err := service.ListTasks(omni.ListTasksOptions{
-				Limit:  limit,
-				Offset: offset,
+				Limit:  collectionQueryParams.Limit,
+				Offset: collectionQueryParams.Offset,
 			})
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 
-			// Respond with list of tasks, as well as a link to the tasks endpoint.
-			var response map[string]interface{} = make(map[string]interface{})
-			if meta != "none" {
-				response["@links"] = map[string]interface{}{
-					"self": "/v1/tasks",
-				}
-				if res.Count < res.Total {
-					response["@links"].(map[string]interface{})["next"] = fmt.Sprintf("/v1/tasks?offset=%d&limit=%d", res.Count, limit)
-				}
-
-				response["@query"] = map[string]interface{}{
-					"limit":  limit,
-					"offset": offset,
-				}
-				response["count"] = res.Count
-				response["total"] = res.Total
-			}
-			response["results"] = res.Tasks
-
-			respondWithJSON(w, http.StatusOK, response)
+			api.WriteCollectionResponse(w, http.StatusOK, res.Tasks, res.Count, res.Total, collectionQueryParams, metaQueryParams)
 		})
 		// Create task.
 		v1.Post("/tasks", func(w http.ResponseWriter, r *http.Request) {
