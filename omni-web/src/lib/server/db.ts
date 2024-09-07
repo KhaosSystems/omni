@@ -1,5 +1,11 @@
-import { getCollection } from "$lib/khaos/krest";
+import  * as krest from "$lib/khaos/krest";
 
 export async function getTasks() {
-    return await getCollection("v1/tasks");
+    try {
+        const tasks = await krest.getCollection("v1/tasks");
+        return tasks;
+    } catch (error) {
+        console.error("Error fetching tasks:", error);
+        return [];
+    }
 }

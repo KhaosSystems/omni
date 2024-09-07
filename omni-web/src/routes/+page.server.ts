@@ -10,10 +10,15 @@ export async function load({ cookies }) {
         return redirect(303, '/login')
     }
 
-    return {
-        tasks: await db.getTasks(),
-        sessionid: sessionid
+    let tasks = []
+    try {
+        tasks = await db.getTasks()
+    } catch (error) {
+        console.error('Error fetching tasks:', error)
+        tasks = []
     }
+
+    return { tasks, sessionid }
 }
 
 // Docs: https://kit.svelte.dev/docs/form-actions
@@ -27,7 +32,12 @@ export const actions = {
         
         const task = { title, description }
 
-        await createResource('v1/tasks', task)
+        try {
+            await createResource('v1/tasks', task)
+        } catch (error) {
+            console.error(error)
+            return { status: 500 }
+        }
     },
     logout: async ({ cookies }) => {
         console.log('Logging out...')
