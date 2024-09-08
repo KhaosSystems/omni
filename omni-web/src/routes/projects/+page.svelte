@@ -1,12 +1,5 @@
 <script lang="ts">
-    import {
-        Badge,
-        Button,
-        Card,
-        Input,
-        ScrollArea,
-        Dialog,
-    } from "@khaossystems/matter";
+    import Card from "@khaossystems/matter/components/card";
 
     let { data } = $props();
     let projects = $state(data.projects);
@@ -18,9 +11,9 @@
             <div>No projects</div>
         {:else}
             {#each projects as project}
-                <Card class="w-52 h-36">
+                <a href={`/projects/${project.uuid}`}><Card class="w-52 h-36">
                     <div>{JSON.stringify(project)}</div>
-                </Card>
+                </Card></a>
             {/each}
         {/if}
     </div>

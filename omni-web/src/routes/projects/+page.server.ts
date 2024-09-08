@@ -4,26 +4,22 @@ import * as db from '$lib/server/db'
 
 
 /** @type {import('./$types').PageServerLoad} */
-export async function load() {
-    // 
-    console.log('Loading projects page...')
-    return { projects: [{ title: Math.random().toString() }], sessionid: "validsessionid" }
-    
-    //const sessionid = cookies.get('sessionid')
-    //if (!sessionid || sessionid == 'invalidsessionid') {
-    //    return redirect(303, '/login')
-    //}
+export async function load({ cookies}) {
+    const sessionid = cookies.get('sessionid')
+    if (!sessionid || sessionid == 'invalidsessionid') {
+        return redirect(303, '/login')
+    }
 
 
-    //let projects = []
-    //try {
-    //    projects = await db.getProjects()
-    //} catch (error) {
-    //    console.error('Error fetching projects:', error)
-    //    projects = []
-    //}
+    let projects = []
+    try {
+        projects = await db.getProjects()
+    } catch (error) {
+        console.error('Error fetching projects:', error)
+        projects = []
+    }
 
-    //return { projects, sessionid }
+    return { projects, sessionid }
 }
 
 // Docs: https://kit.svelte.dev/docs/form-actions

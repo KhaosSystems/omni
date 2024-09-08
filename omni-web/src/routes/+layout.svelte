@@ -1,5 +1,8 @@
 <script lang="ts">
-    import { Button, Avatar, Dialog, Toast } from "@khaossystems/matter";
+    import Button from '@khaossystems/matter/components/button'
+    import Avatar from '@khaossystems/matter/components/avatar'
+    import Dialog from '@khaossystems/matter/components/experimental/dialog'
+    import Toast from '@khaossystems/matter/components/experimental/toast'
 
     import '../app.css'
 </script>

@@ -36,6 +36,3 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
-
-## Known Issues
- - The reloading is quite slow (10-20sec) in dev mode (`npm run dev`).

@@ -1,5 +1,6 @@
 <script lang="ts">
-    import { Button, Input } from '@khaossystems/matter'
+    import Button from '@khaossystems/matter/components/button'
+    import Input from '@khaossystems/matter/components/input'
 
     let { data } = $props();
     let sessionid = $state(data.sessionid);

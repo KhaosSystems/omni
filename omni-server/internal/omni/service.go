@@ -11,15 +11,34 @@ type OmniService struct {
 	db *sql.DB
 }
 
-type Task struct {
-	UUID        uuid.UUID `json:"uuid"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-}
-
 type Project struct {
 	UUID  uuid.UUID `json:"uuid"`
 	Title string    `json:"title"`
+}
+
+type Task struct {
+	/*
+	* The unique identifier of the task.
+	 */
+	UUID        uuid.UUID `json:"uuid"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	Status      string    `json:"status"`
+
+	/*
+	* The owning project.
+	 */
+	ProjectUUID uuid.UUID `json:"project_uuid"`
+
+	/*
+	* Assignees of the task.
+	 */
+	Assignees []uuid.UUID `json:"assignees"`
+
+	/*
+	* Reporter of the task.
+	 */
+	Reporters []uuid.UUID `json:"reporter"`
 }
 
 func NewOmniService(db *sql.DB) (*OmniService, error) {
