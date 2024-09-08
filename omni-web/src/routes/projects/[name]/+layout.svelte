@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Archive } from "lucide-svelte";
+    import Archive from "lucide-svelte/icons/archive";
     import { page } from '$app/stores';
 </script>
 

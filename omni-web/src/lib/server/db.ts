@@ -9,3 +9,13 @@ export async function getTasks() {
         return [];
     }
 }
+
+export async function getProjects() {
+    try {
+        const projects = await krest.getCollection("v1/projects");
+        return projects;
+    } catch (error) {
+        console.error("Error fetching projects:", error);
+        return [];
+    }
+}

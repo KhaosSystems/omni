@@ -1,6 +1,6 @@
 <script lang="ts">
     import { Badge, Button, Card, Input } from "@khaossystems/matter";
-    import { SquareCheck } from "lucide-svelte";
+    import SquareCheck from "lucide-svelte/icons/square-check";
 
     let { data } = $props();
     let tasks = $state(data.tasks);

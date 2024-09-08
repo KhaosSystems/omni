@@ -17,6 +17,11 @@ type Task struct {
 	Description string    `json:"description"`
 }
 
+type Project struct {
+	UUID  uuid.UUID `json:"uuid"`
+	Title string    `json:"title"`
+}
+
 func NewOmniService(db *sql.DB) (*OmniService, error) {
 	// Test the connection to the database.
 	err := db.Ping()
@@ -32,6 +37,15 @@ func NewOmniService(db *sql.DB) (*OmniService, error) {
 	)`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tasks table: %v", err)
+	}
+
+	// Create the projects table if it does not exist.
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS projects (
+		uuid UUID PRIMARY KEY,
+		title TEXT NOT NULL
+	)`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create projects table: %v", err)
 	}
 
 	return &OmniService{db: db}, nil
@@ -63,6 +77,93 @@ func (s *OmniService) CreateTask(title, description string) (uuid.UUID, error) {
 	}
 
 	return uuid, nil
+}
+
+// CreateProject creates a new project in the database.
+func (s *OmniService) CreateProject(title string) (uuid.UUID, error) {
+	// Generate a new UUID for the project.
+	uuid, err := uuid.NewRandom()
+	if err != nil {
+		return uuid, err
+	}
+
+	// Insert the project into the database.
+	_, err = s.db.Exec("INSERT INTO projects (uuid, title) VALUES ($1, $2)", uuid, title)
+	if err != nil {
+		return uuid, err
+	}
+
+	return uuid, nil
+}
+
+type ListProjectsOptions struct {
+	Limit  int
+	Offset int
+}
+
+type ListProjectsResponse struct {
+	Projects []Project `json:"projects"`
+	Count    int       `json:"count"`
+	Total    int       `json:"total"`
+}
+
+// ListProjects returns a list of projects from the database.
+func (s *OmniService) ListProjects(options ListProjectsOptions) (ListProjectsResponse, error) {
+	query := `
+	SELECT *,
+		COUNT(*) OVER() AS total
+	FROM projects
+`
+	args := []interface{}{}
+	argIdx := 1
+
+	// Validate the limit and offset values.
+	if options.Limit < 0 {
+		return ListProjectsResponse{}, fmt.Errorf("invalid limit value: %d", options.Limit)
+	}
+	if options.Offset < 0 {
+		return ListProjectsResponse{}, fmt.Errorf("invalid offset value: %d", options.Offset)
+	}
+
+	// Add the limit and offset to the query.
+	if options.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIdx)
+		args = append(args, options.Limit)
+		argIdx++
+	}
+
+	if options.Offset > 0 {
+		query += fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, options.Offset)
+	}
+
+	// Print the query for debugging purposes.
+	fmt.Println(query, args)
+
+	// Query the database for all projects.
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return ListProjectsResponse{}, err
+	}
+	defer rows.Close()
+
+	// Iterate over the rows and create a slice of projects.
+	projects := []Project{}
+	var total int
+	for rows.Next() {
+		var project Project
+		err := rows.Scan(&project.UUID, &project.Title, &total)
+		if err != nil {
+			return ListProjectsResponse{}, err
+		}
+		projects = append(projects, project)
+	}
+
+	return ListProjectsResponse{
+		Projects: projects,
+		Count:    len(projects),
+		Total:    total,
+	}, nil
 }
 
 type ListTasksOptions struct {

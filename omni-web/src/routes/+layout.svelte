@@ -1,9 +1,11 @@
 <script lang="ts">
-    import { Button, Avatar } from "@khaossystems/matter";
-    import { Archive } from "lucide-svelte";
+    import { Button, Avatar, Dialog, Toast } from "@khaossystems/matter";
 
     import '../app.css'
 </script>
+
+<Dialog />
+<Toast />
 
 <div class="flex flex-col h-full">
     <header class="flex flex-row border-b items-center px-4 py-1 gap-3">

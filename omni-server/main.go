@@ -199,29 +199,78 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 
 			respondWithJSON(w, http.StatusCreated, object)
 		})
-	})
+		// List projects.
+		v1.Get("/projects", func(w http.ResponseWriter, r *http.Request) {
+			// Parse the meta query parameters from the request.
+			metaQueryParams, err := api.ParseMetaQueryParams(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		// Return a html form for creating a task.
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`
-			<!DOCTYPE html>
-			<html>
-			<head>
-				<title>Create Task</title>
-			</head>
-			<body>
-				<h1>Create Task</h1>
-				<form action="/v1/tasks" method="post">
-					<label for="title">Title:</label><br>
-					<input type="text" id="title" name="title"><br>
-					<label for="description">Description:</label><br>
-					<textarea id="description" name="description"></textarea><br>
-					<input type="submit" value="Create Task">
-				</form>
-			</body>
-			</html>
-		`))
+			// Parse the collection query parameters from the request.
+			collectionQueryParams, err := api.ParseCollectionQueryParams(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Get the list of projects from the service.
+			res, err := service.ListProjects(omni.ListProjectsOptions{
+				Limit:  collectionQueryParams.Limit,
+				Offset: collectionQueryParams.Offset,
+			})
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			api.WriteCollectionResponse(w, http.StatusOK, res.Projects, res.Count, res.Total, collectionQueryParams, metaQueryParams)
+		})
+		// Create project.
+		v1.Post("/projects", func(w http.ResponseWriter, r *http.Request) {
+			var project omni.Project
+
+			// Check the Content-Type to determine if the request is JSON or form submission
+			contentType := r.Header.Get("Content-Type")
+
+			if contentType == "application/json" {
+				// Handle JSON request
+				err := json.NewDecoder(r.Body).Decode(&project)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+			} else if contentType == "application/x-www-form-urlencoded" {
+				// Handle form submission
+				err := r.ParseForm()
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				project.Title = r.FormValue("title")
+			} else {
+				http.Error(w, "Unsupported content type", http.StatusUnsupportedMediaType)
+				return
+			}
+
+			// Create the project using the service
+			uuid, err := service.CreateProject(project.Title)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// Respond with the UUID of the created project, inside a JSON object
+			object := map[string]interface{}{
+				"@links": map[string]string{
+					"self": fmt.Sprintf("/v1/projects/%s", uuid),
+				},
+				"uuid": uuid,
+			}
+
+			respondWithJSON(w, http.StatusCreated, object)
+		})
 	})
 
 	return router

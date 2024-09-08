@@ -8,6 +8,14 @@ export async function getCollection(endpoint: string) {
 
   if (res.ok) {
     const body = await res.json();
+    // Some APIs may (SHOULD NOT) return undefined instead of an empty array.
+    // This is due to the fact that the go developers where high on something when they wrote the API...
+    // We need to deal with this here.
+    if (body.results === undefined) {
+      console.warn(`API returned undefined instead of an empty array for ${endpoint}. This is non-spec compliant. Find the dev and bully them.`);
+      return [];
+    }
+
     return await body.results;
   } else {
     throw new Error(res.statusText);
