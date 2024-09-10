@@ -13,7 +13,7 @@
     let taskInTheMaking: any | null = $state(null);
 </script>
 
-{data.project}
+<div><a href="/projects">Projects</a> / <a href={`/projects/${data.project.uuid}`}>{data.project.title}</a></div>
 <h1 class="text-2xl mb-2">Backlog</h1>
 
 <Card class="bg-neutral-900 full-w">
@@ -21,7 +21,7 @@
         Board <span class="text-xs">({tasks.length || 0} tasks)</span>
     </div>
     {#each tasks as task, i}
-        <a href={`/projects/${data.project}/tasks/${task.uuid}`}
+        <div
             class="flex flex-row border-r border-l border-b p-1 items-center px-4 gap-2 bg-neutral-800"
             class:border-t={i == 0}
         >
@@ -42,7 +42,18 @@
             <Button size="xs" class="text-xs bg-green-500 hover:bg-green-400 active:bg-green-300 focus:bg-green-400 font-semibold text-white">
                 Complete
             </Button>
-        </a>
+
+            <form method="POST" action="?/deleteTask">
+                <input type="hidden" name="uuid" value={task.uuid} />
+                <Button type="submit" size="xs" class="text-xs bg-red-500 hover:bg-red-400 active:bg-red-300 focus:bg-red-400 font-semibold text-white"  >
+                    Delete
+                </Button>
+            </form>
+            
+            <a href={`/projects/${data.project}/tasks/${task.uuid}`} class="text-xs">
+                View
+            </a>
+        </div>
     {/each}
     {#if taskInTheMaking}
         <form method="POST" action="?/addTask">

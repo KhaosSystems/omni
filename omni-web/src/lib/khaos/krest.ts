@@ -22,6 +22,19 @@ export async function getCollection(endpoint: string) {
   }
 }
 
+export async function getResource(endpoint: string, uuid: string) {
+  const res = await fetch(`http://localhost:30090/${endpoint}/${uuid}`);
+  if (res.ok) {
+    var resource = await res.json();
+    // Strip metadata (starting with @) from the resource.
+    resource = Object.fromEntries(Object.entries(resource).filter(([key, value]) => !key.startsWith("@")));
+
+    return resource;
+  } else {
+    throw new Error(res.statusText);
+  }
+}
+
 export async function createResource(endpoint: string, data: any) {
   const res = await fetch(`http://localhost:30090/${endpoint}`, {
     method: "POST",
@@ -29,6 +42,22 @@ export async function createResource(endpoint: string, data: any) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(data),
+  });
+
+  if (res.ok) {
+    const body = await res.json();
+    return await body.results;
+  } else {
+    throw new Error(res.statusText);
+  }
+}
+
+export async function deleteResource(endpoint: string, uuid: string) {
+  const res = await fetch(`http://localhost:30090/${endpoint}/${uuid}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 
   if (res.ok) {

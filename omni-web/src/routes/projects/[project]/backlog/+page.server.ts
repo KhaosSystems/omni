@@ -1,10 +1,10 @@
 import { redirect } from '@sveltejs/kit'
-import { createResource } from '$lib/khaos/krest.js'
+import { getResource, createResource, deleteResource } from '$lib/khaos/krest.js'
 import * as db from '$lib/server/db'
 
 
 /** @type {import('./$types').PageServerLoad} */
-export async function load({ cookies }) {
+export async function load({ cookies, params }) {
     const sessionid = cookies.get('sessionid')
     if (!sessionid || sessionid == 'invalidsessionid') {
         return redirect(303, '/login')
@@ -13,12 +13,20 @@ export async function load({ cookies }) {
     let tasks = []
     try {
         tasks = await db.getTasks()
+        tasks = tasks.filter(task => task.project.uuid === "7ac2c226-9900-4690-9053-8583f89971a4")
     } catch (error) {
         console.error('Error fetching tasks:', error)
         tasks = []
     }
 
-    return { tasks, sessionid }
+    let project = {}
+    try {
+        project = await getResource('v1/projects', params.project) 
+    } catch (error) {
+        console.error('Error fetching project:', error)
+    }
+
+    return { tasks, sessionid, project: project }
 }
 
 // Docs: https://kit.svelte.dev/docs/form-actions
@@ -30,10 +38,20 @@ export const actions = {
         const title = data.get('title')
         const description = data.get('description')
         
-        const task = { title, description }
+        const task = { title, description, project: { uuid: "7ac2c226-9900-4690-9053-8583f89971a4" } }
 
         try {
             await createResource('v1/tasks', task)
+        } catch (error) {
+            console.error(error)
+            return { status: 500 }
+        }
+    },
+    deleteTask: async ({ cookies, request }) => {
+        const data = await request.formData()
+        const uuid = data.get('uuid')?.toString() ?? ''
+        try {
+            await deleteResource(`v1/tasks`, uuid)
         } catch (error) {
             console.error(error)
             return { status: 500 }

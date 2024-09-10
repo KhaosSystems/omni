@@ -165,6 +165,7 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 				// Handle JSON request
 				err := json.NewDecoder(r.Body).Decode(&task)
 				if err != nil {
+					log.Println(err)
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
@@ -172,19 +173,29 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 				// Handle form submission
 				err := r.ParseForm()
 				if err != nil {
+					log.Println(err)
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
 				task.Title = r.FormValue("title")
 				task.Description = r.FormValue("description")
+				// Parse the project UUID from the form submission
+				uuid, err := uuid.Parse(r.FormValue("project"))
+				if err != nil {
+					log.Println(err)
+					http.Error(w, "Failed to parse project UUID", http.StatusBadRequest)
+					return
+				}
+				task.Project.UUID = uuid
 			} else {
 				http.Error(w, "Unsupported content type", http.StatusUnsupportedMediaType)
 				return
 			}
 
 			// Create the task using the service
-			uuid, err := service.CreateTask(task.Title, task.Description)
+			uuid, err := service.CreateTask(task.Title, task.Description, task.Project.UUID)
 			if err != nil {
+				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -199,6 +210,26 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 
 			respondWithJSON(w, http.StatusCreated, object)
 		})
+		// Delete task.
+		v1.Delete("/tasks/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+			// Get the UUID from the URL parameters.
+			uuidStr := chi.URLParam(r, "uuid")
+			uuid, err := uuid.Parse(uuidStr)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Delete the task using the service.
+			err = service.DeleteTask(uuid)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusNoContent)
+		})
+
 		// List projects.
 		v1.Get("/projects", func(w http.ResponseWriter, r *http.Request) {
 			// Parse the meta query parameters from the request.
@@ -226,6 +257,41 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 			}
 
 			api.WriteCollectionResponse(w, http.StatusOK, res.Projects, res.Count, res.Total, collectionQueryParams, metaQueryParams)
+		})
+		// Get project.
+		v1.Get("/projects/{uuid}", func(w http.ResponseWriter, r *http.Request) {
+			// Get the UUID from the URL parameters.
+			uuidStr := chi.URLParam(r, "uuid")
+
+			// Parse the UUID from the URL parameters.
+			uuid, err := uuid.Parse(uuidStr)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Parse the meta query parameters from the request.
+			metaQueryParams, err := api.ParseMetaQueryParams(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Get the resource query parameters from the request.
+			_, err = api.ParseResourceQueryParams(r)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			// Get the project from the service.
+			project, err := service.GetProject(uuid)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusNotFound)
+				return
+			}
+
+			api.WriteResourceResponse(w, http.StatusOK, project, metaQueryParams)
 		})
 		// Create project.
 		v1.Post("/projects", func(w http.ResponseWriter, r *http.Request) {

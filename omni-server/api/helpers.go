@@ -190,7 +190,26 @@ func WriteResourceResponse[T any](w http.ResponseWriter, code int, data T, metaP
 		}
 	}
 
-	// Serialize the data and add it to the response.
+	// Serialize the provided data and add it to the response.
+	// Reflect on the data structure to allow generic serialization.
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		http.Error(w, "Failed to serialize response data", http.StatusInternalServerError)
+		return
+	}
+
+	// Deserialize back into a map to merge into the response.
+	var dataMap map[string]interface{}
+	err = json.Unmarshal(dataBytes, &dataMap)
+	if err != nil {
+		http.Error(w, "Failed to deserialize response data", http.StatusInternalServerError)
+		return
+	}
+
+	// Merge the data into the response.
+	for key, value := range dataMap {
+		response[key] = value
+	}
 
 	// Write the response.
 	w.Header().Set("Content-Type", "application/json")

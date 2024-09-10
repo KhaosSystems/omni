@@ -21,14 +21,10 @@ type Task struct {
 	* The unique identifier of the task.
 	 */
 	UUID        uuid.UUID `json:"uuid"`
-	Title       string    `json:"title"`
+	Title       string    `json:"title"` // Summary?
 	Description string    `json:"description"`
 	Status      string    `json:"status"`
-
-	/*
-	* The owning project.
-	 */
-	ProjectUUID uuid.UUID `json:"project_uuid"`
+	Project     Project   `json:"project"`
 
 	/*
 	* Assignees of the task.
@@ -52,7 +48,8 @@ func NewOmniService(db *sql.DB) (*OmniService, error) {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS tasks (
 		uuid UUID PRIMARY KEY,
 		title TEXT NOT NULL,
-		description TEXT
+		description TEXT,
+		project_uuid UUID REFERENCES projects(uuid)
 	)`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create tasks table: %v", err)
@@ -73,7 +70,7 @@ func NewOmniService(db *sql.DB) (*OmniService, error) {
 // GetTask returns a task from the database.
 func (s *OmniService) GetTask(uuid uuid.UUID) (Task, error) {
 	var task Task
-	err := s.db.QueryRow("SELECT * FROM tasks WHERE uuid = $1", uuid).Scan(&task.UUID, &task.Title, &task.Description)
+	err := s.db.QueryRow("SELECT * FROM tasks WHERE uuid = $1", uuid).Scan(&task.UUID, &task.Title, &task.Description, &task.Project.UUID)
 	if err != nil {
 		return task, err
 	}
@@ -82,7 +79,7 @@ func (s *OmniService) GetTask(uuid uuid.UUID) (Task, error) {
 }
 
 // CreateTask creates a new task in the database.
-func (s *OmniService) CreateTask(title, description string) (uuid.UUID, error) {
+func (s *OmniService) CreateTask(title, description string, projectUUID uuid.UUID) (uuid.UUID, error) {
 	// Generate a new UUID for the task.
 	uuid, err := uuid.NewRandom()
 	if err != nil {
@@ -90,12 +87,22 @@ func (s *OmniService) CreateTask(title, description string) (uuid.UUID, error) {
 	}
 
 	// Insert the task into the database.
-	_, err = s.db.Exec("INSERT INTO tasks (uuid, title, description) VALUES ($1, $2, $3)", uuid, title, description)
+	_, err = s.db.Exec("INSERT INTO tasks (uuid, title, description, project_uuid) VALUES ($1, $2, $3, $4)", uuid, title, description, projectUUID)
 	if err != nil {
 		return uuid, err
 	}
 
 	return uuid, nil
+}
+
+// DeleteTask deletes a task from the database.
+func (s *OmniService) DeleteTask(uuid uuid.UUID) error {
+	_, err := s.db.Exec("DELETE FROM tasks WHERE uuid = $1", uuid)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // CreateProject creates a new project in the database.
@@ -185,6 +192,16 @@ func (s *OmniService) ListProjects(options ListProjectsOptions) (ListProjectsRes
 	}, nil
 }
 
+func (s *OmniService) GetProject(uuid uuid.UUID) (Project, error) {
+	var project Project
+	err := s.db.QueryRow("SELECT * FROM projects WHERE uuid = $1", uuid).Scan(&project.UUID, &project.Title)
+	if err != nil {
+		return project, err
+	}
+
+	return project, nil
+}
+
 type ListTasksOptions struct {
 	Limit  int
 	Offset int
@@ -241,7 +258,7 @@ func (s *OmniService) ListTasks(options ListTasksOptions) (ListTasksResponse, er
 	var total int
 	for rows.Next() {
 		var task Task
-		err := rows.Scan(&task.UUID, &task.Title, &task.Description, &total)
+		err := rows.Scan(&task.UUID, &task.Title, &task.Description, &task.Project.UUID, &total)
 		if err != nil {
 			return ListTasksResponse{}, err
 		}
