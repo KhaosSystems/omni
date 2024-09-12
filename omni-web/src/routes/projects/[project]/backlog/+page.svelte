@@ -3,6 +3,7 @@
     import Button from "@khaossystems/matter/components/button";
     import Card from "@khaossystems/matter/components/card";
     import Input from "@khaossystems/matter/components/input";
+    import Select from "@khaossystems/matter/components/select";
     import SquareCheck from "lucide-svelte/icons/square-check";
     import CheveronDown from "lucide-svelte/icons/chevron-down";
 
@@ -35,8 +36,11 @@
                 style="ghost"
                 bind:value={task.title}
             />
+            <Select class="text-xs px-1 py-0 h-fit" options={["TO DO", "IN PROGRESS", "DONE"]} value={task.status} onchange={(event: Event) => {
+                console.log(event.target.value)
+            }} />
             <div class="text-xs bg-orange-500 font-semibold rounded px-1 text-white">
-                TO DO <CheveronDown class="inline -translate-y-[1px]" size=14 strokeWidth=4 />
+                {task.status} <CheveronDown class="inline -translate-y-[1px]" size=14 strokeWidth=4 />
             </div>
 
             <Button size="xs" class="text-xs bg-green-500 hover:bg-green-400 active:bg-green-300 focus:bg-green-400 font-semibold text-white">

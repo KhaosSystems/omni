@@ -14,7 +14,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/khaossystems/omni-server/api"
-	"github.com/khaossystems/omni-server/internal/omni"
+	omni "github.com/khaossystems/omni-server/internal"
+	"github.com/khaossystems/omni-server/internal/pkg/krest"
+	"github.com/khaossystems/omni-server/internal/pkg/krest_orm"
+	"github.com/khaossystems/omni-server/pkg/models"
 	"github.com/lib/pq"
 )
 
@@ -97,7 +100,43 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}))
 
+	userRepository := krest_orm.NewGenericPostgresRepository[models.User](service.DB)
+	userService := krest_orm.NewGenericService(userRepository)
+	userHandler := krest.NewHandler(userService)
+
+	taskRepository := krest_orm.NewGenericPostgresRepository[models.Task](service.DB)
+	taskService := krest_orm.NewGenericService(taskRepository)
+	taskHandler := krest.NewHandler(taskService)
+
+	projectRepository := krest_orm.NewGenericPostgresRepository[models.User](service.DB)
+	projectService := krest_orm.NewGenericService(projectRepository)
+	projectHandler := krest.NewHandler(projectService)
+
+	router.Route("/v2", func(v2 chi.Router) {
+		// Users
+		v2.Get("/users/{uuid}", userHandler.Get)
+		v2.Get("/users", userHandler.List)
+		v2.Post("/users", userHandler.Create)
+		v2.Patch("/users/{uuid}", userHandler.Update)
+		v2.Delete("/users/{uuid}", userHandler.Delete)
+
+		// Tasks
+		v2.Get("/tasks/{uuid}", taskHandler.Get)
+		v2.Get("/tasks", taskHandler.List)
+		v2.Post("/tasks", taskHandler.Create)
+		v2.Patch("/tasks/{uuid}", taskHandler.Update)
+		v2.Delete("/tasks/{uuid}", taskHandler.Delete)
+
+		// Projects
+		v2.Get("/projects/{uuid}", projectHandler.Get)
+		v2.Get("/projects", projectHandler.List)
+		v2.Post("/projects", projectHandler.Create)
+		v2.Patch("/projects/{uuid}", projectHandler.Update)
+		v2.Delete("/projects/{uuid}", projectHandler.Delete)
+	})
+
 	router.Route("/v1", func(v1 chi.Router) {
+
 		// Get task.
 		v1.Get("/tasks/{uuid}", func(w http.ResponseWriter, r *http.Request) {
 			// Get the UUID from the URL parameters.
@@ -156,7 +195,7 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 		})
 		// Create task.
 		v1.Post("/tasks", func(w http.ResponseWriter, r *http.Request) {
-			var task omni.Task
+			var task models.Task
 
 			// Check the Content-Type to determine if the request is JSON or form submission
 			contentType := r.Header.Get("Content-Type")
@@ -177,7 +216,7 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
-				task.Title = r.FormValue("title")
+				task.Summary = r.FormValue("title")
 				task.Description = r.FormValue("description")
 				// Parse the project UUID from the form submission
 				uuid, err := uuid.Parse(r.FormValue("project"))
@@ -193,7 +232,7 @@ func createRouter(service *omni.OmniService) *chi.Mux {
 			}
 
 			// Create the task using the service
-			uuid, err := service.CreateTask(task.Title, task.Description, task.Project.UUID)
+			uuid, err := service.CreateTask(task.Summary, task.Description, task.Project.UUID)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)

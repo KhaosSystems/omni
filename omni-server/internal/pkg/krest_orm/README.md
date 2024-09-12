@@ -1,0 +1,1 @@
+Contains a fuctional ORM. Used in Omni. Use it as implementation reference. Implements the krest patterns.

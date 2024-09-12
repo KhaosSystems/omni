@@ -1,0 +1,1 @@
+Repository Pattern: https://www.youtube.com/watch?v=ivJ2s0e7vi0
