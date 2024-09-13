@@ -34,7 +34,7 @@
                 type="text"
                 inputSize="xs"
                 style="ghost"
-                bind:value={task.title}
+                bind:value={task.summary}
             />
             <Select class="text-xs px-1 py-0 h-fit" options={["TO DO", "IN PROGRESS", "DONE"]} value={task.status} onchange={(event: Event) => {
                 console.log(event.target.value)
@@ -63,7 +63,7 @@
         <form method="POST" action="?/addTask">
             <input
                 type="text"
-                name="title"
+                name="summary"
                 bind:value={taskInTheMaking.title}
             />
             <button>Create</button>

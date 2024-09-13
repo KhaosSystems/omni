@@ -23,7 +23,7 @@
     </div>
 
     <form method="POST" action="?/createProject">
-        <input type="text" name="title" />
+        <input type="text" name="name" />
         <button>Create</button>
     </form>
 </main>

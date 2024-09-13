@@ -28,9 +28,9 @@ export const actions = {
     createProject: async ({ cookies, request }) => {
         // For reference, see: https://kit.svelte.dev/docs/form-actions#anatomy-of-an-action
         const data = await request.formData()
-        const title = data.get('title')
+        const name = data.get('name')
         
-        const project = { title }
+        const project = { name }
 
         try {
             await createResource('v1/projects', project)

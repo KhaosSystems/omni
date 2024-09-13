@@ -1,10 +1,42 @@
+
+/**
+ * Collection query parameters.
+ * See: omni-server/internal/pkg/krest/krest_types.go
+ */
+export type CollectionQuery = {
+  /**
+   * The number of items to return.
+   */
+  limit?: number;
+  /**
+   * The number of items to skip.
+   */
+  offset?: number;
+  /**
+   * 
+   */
+  expand?: string[];
+}
 /**
  * Helpers functions for Khaos REST API specification.
  * See: https://www.notion.so/khaosgroup/Khaos-Collective-REST-API-Specification-2024-WIP-9b276e93b64c46ccb09d25e9757b3161
  */
+export async function getCollection(endpoint: string, query: CollectionQuery = {}) {
+  // Build the query string from the query object.
+  let queryParameters = new URLSearchParams();
+  if (query.limit) {
+    queryParameters.append("limit", query.limit.toString());
+  }
+  if (query.offset) {
+    queryParameters.append("offset", query.offset.toString());
+  }
+  if (query.expand) {
+    queryParameters.append("expand", query.expand.join(","));
+  }
 
-export async function getCollection(endpoint: string) {
-  const res = await fetch(`http://localhost:30090/${endpoint}`);
+  // Fetch the collection from the API.
+  const res = await fetch(`http://localhost:30090/${endpoint}?${queryParameters.toString()}`);
+  console.log(`http://localhost:30090/${endpoint}?${queryParameters.toString()}`);
 
   if (res.ok) {
     const body = await res.json();
