@@ -267,7 +267,7 @@ func WriteResourceResponse[T any](w http.ResponseWriter, code int, data T, query
 		// Reflect on T to find expandable fields (assumed tagged with `krest:"expandable"`)
 		// TODO: Abstract this into a function.
 		if all || slices.Contains(metaParams.Meta, "expandable") {
-			allExpandableFields, err := ReflectExpandableFields[T]()
+			/*allExpandableFields, err := ReflectExpandableFields[T]()
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -280,7 +280,8 @@ func WriteResourceResponse[T any](w http.ResponseWriter, code int, data T, query
 				}
 			}
 
-			response["@expandable"] = expandableFields
+			response["@expandable"] = expandableFields*/
+			response["@expandable"] = map[string]interface{}{"TODO": "This was commented out in refactor.."}
 		}
 	}
 

@@ -19,6 +19,7 @@ import (
 	"github.com/khaossystems/omni-server/internal/pkg/krest_orm"
 	"github.com/khaossystems/omni-server/pkg/models"
 	"github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func connectToDatabase() (*sql.DB, error) {
@@ -68,6 +69,30 @@ func connectToDatabase() (*sql.DB, error) {
 	err = db.Ping()
 	if err != nil {
 		log.Fatalf("Failed to ping the database: %v", err)
+	}
+
+	return db, nil
+}
+
+func connectToSQLiteDatabase() (*sql.DB, error) {
+	// Get database connection information from environment variables.
+	dbPath := os.Getenv("OMNI_DATA_PATH")
+
+	// Validate required environment variables.
+	if dbPath == "" {
+		log.Fatal("Missing required environment variables")
+	}
+
+	// Connect to the SQLite database.
+	db, err := sql.Open("sqlite3", dbPath+"/omni.db")
+	if err != nil {
+		log.Fatalf("Failed to connect to SQLite database: %v", err)
+	}
+
+	// Test the connection to the SQLite database.
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Failed to ping the SQLite database: %v", err)
 	}
 
 	return db, nil
@@ -390,7 +415,8 @@ func main() {
 	}
 
 	// Connect to the database.
-	db, err := connectToDatabase()
+	//db, err := connectToDatabase()
+	db, err := connectToSQLiteDatabase()
 	if err != nil {
 		log.Panicf("Error connecting to database: %v", err)
 	} else {

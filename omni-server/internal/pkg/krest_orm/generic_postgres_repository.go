@@ -16,12 +16,13 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/khaossystems/omni-server/internal/pkg/krest"
 )
 
 // Implement the krest.Repository[T] interface.
 type GenericPostgresRepository[T any] struct {
-	db    *sql.DB
+	db    *sqlx.DB
 	table string
 }
 
@@ -40,9 +41,55 @@ func NewGenericPostgresRepository[T any](db *sql.DB) *GenericPostgresRepository[
 	}
 
 	return &GenericPostgresRepository[T]{
-		db:    db,
+		db:    sqlx.NewDb(db, "postgres"),
 		table: table,
 	}
+}
+
+/*
+* Returns the fields for a given struct type and query.
+ */
+func (r *GenericPostgresRepository[T]) FieldsToGet(expand []string) ([]reflect.StructField, error) {
+	var t T
+	tValue := reflect.ValueOf(&t).Elem()
+	tType := reflect.TypeOf(tValue)
+
+	// Fields to get from the database.
+	fields := []reflect.StructField{}
+
+	// Make sure T is a struct.
+	if tType.Kind() != reflect.Struct {
+		return []reflect.StructField{}, fmt.Errorf("type %T is not a struct", t)
+	}
+
+	// We always need the non-expandable fields.
+	nonExpandableFields, err := krest.ReflectNonExpandableFields[T]()
+	if err != nil {
+		return []reflect.StructField{}, fmt.Errorf("failed to get non-expandable fields: %v", err)
+	}
+	for _, field := range nonExpandableFields {
+		fields = append(fields, field)
+	}
+
+	// Get the expandable fields.
+	expandableFields, err := krest.ReflectExpandableFields[T]()
+	if err != nil {
+		return []reflect.StructField{}, fmt.Errorf("failed to get expandable fields: %v", err)
+	}
+	for _, field := range expandableFields {
+		// Add if requested.
+		fieldColumnName := ColumnName(field.Name)
+		if slices.Contains(expand, fieldColumnName) {
+			fields = append(fields, field)
+		}
+	}
+
+	// Ensure that at least one field is selected
+	if len(fields) == 0 {
+		return []reflect.StructField{}, fmt.Errorf("no fields selected for query.. not event the uuid.. for some reason")
+	}
+
+	return fields, nil
 }
 
 func (r *GenericPostgresRepository[T]) Get(ctx context.Context, id uuid.UUID, query krest.ResourceQuery) (T, error) {
@@ -55,72 +102,28 @@ func (r *GenericPostgresRepository[T]) Get(ctx context.Context, id uuid.UUID, qu
 	}
 
 	// Fields to get from the database.
-	var fieldsToGet []string
-
-	// We always need the non-expandable fields.
-	nonExpandableFields, err := krest.ReflectNonExpandableFields[T]()
+	fieldsToGet, err := r.FieldsToGet(query.Expand)
 	if err != nil {
-		return *new(T), fmt.Errorf("failed to get non-expandable fields: %v", err)
-	}
-	for key := range nonExpandableFields {
-		fieldsToGet = append(fieldsToGet, key)
+		return *new(T), fmt.Errorf("failed to get fields to get: %v", err)
 	}
 
-	// Get the expandable fields.
-	expandableFields, err := krest.ReflectExpandableFields[T]()
-	if err != nil {
-		return *new(T), fmt.Errorf("failed to get expandable fields: %v", err)
-	}
-	for key := range expandableFields {
-		// Add if requested.
-		if slices.Contains(query.Expand, key) {
-			fieldsToGet = append(fieldsToGet, key)
-		}
-	}
-
-	// Ensure that at least one field is selected
-	if len(fieldsToGet) == 0 {
-		return *new(T), fmt.Errorf("no fields selected for query.. not event the uuid.. for some reason")
+	columnNamesToGet := []string{}
+	for _, field := range fieldsToGet {
+		columnNamesToGet = append(columnNamesToGet, ColumnName(field.Name))
 	}
 
 	// Get the fields from the database.
-	queryFields := strings.Join(fieldsToGet, ", ")
+	queryFields := strings.Join(columnNamesToGet, ", ")
 	sql := fmt.Sprintf("SELECT %s FROM tasks WHERE uuid = $1", queryFields)
 
 	// Execute the query.
-	row := r.db.QueryRow(sql, id)
-
-	// Scan the row into the task struct.
-	var task T
-	destFields := make([]interface{}, len(fieldsToGet))
-
-	taskValue := reflect.ValueOf(&task).Elem() // Get the value of the task struct.
-
-	log.Printf("getting fields: %v", fieldsToGet)
-
-	for i, field := range fieldsToGet {
-		// Match the field with the struct field by name.
-		structField := taskValue.FieldByNameFunc(func(s string) bool {
-			// Match struct field name with the database field (case-sensitive check).
-			return strings.EqualFold(s, field)
-		})
-
-		if structField.IsValid() {
-			destFields[i] = structField.Addr().Interface() // Get address to assign value via Scan.
-		} else {
-			return *new(T), fmt.Errorf("field %s not found in task struct", field)
-		}
+	resource := *new(T)
+	err = r.db.Select(resource, sql, id)
+	if err != nil {
+		return *new(T), fmt.Errorf("failed to query database: %v", err)
 	}
 
-	log.Printf("dest fields: %v", destFields)
-
-	// Scan the row into the task struct.
-	if err := row.Scan(destFields...); err != nil {
-		return *new(T), fmt.Errorf("failed to scan task: %v", err)
-	}
-
-	// The task should now be populated with the selected fields.
-	return task, nil
+	return resource, nil
 }
 
 func (r *GenericPostgresRepository[T]) List(ctx context.Context, query krest.CollectionQuery) ([]T, error) {
@@ -133,37 +136,20 @@ func (r *GenericPostgresRepository[T]) List(ctx context.Context, query krest.Col
 	}
 
 	// Fields to get from the database.
-	var fieldsToGet []string
-
-	// We always need the non-expandable fields.
-	nonExpandableFields, err := krest.ReflectNonExpandableFields[T]()
+	fieldsToGet, err := r.FieldsToGet(query.Expand)
 	if err != nil {
-		return []T{}, fmt.Errorf("failed to get non-expandable fields: %v", err)
-	}
-	for key := range nonExpandableFields {
-		fieldsToGet = append(fieldsToGet, key)
+		return []T{}, fmt.Errorf("failed to get fields to get: %v", err)
 	}
 
-	// Get the expandable fields.
-	expandableFields, err := krest.ReflectExpandableFields[T]()
-	if err != nil {
-		return []T{}, fmt.Errorf("failed to get expandable fields: %v", err)
-	}
-	for key := range expandableFields {
-		// Add if requested.
-		if slices.Contains(query.Expand, key) {
-			fieldsToGet = append(fieldsToGet, key)
-		}
-	}
-
-	// Ensure that at least one field is selected
-	if len(fieldsToGet) == 0 {
-		return []T{}, fmt.Errorf("no fields selected for query.. not event the uuid.. for some reason")
+	// Get the db names of the fields to get.
+	columnNamesToGet := []string{}
+	for _, field := range fieldsToGet {
+		columnNamesToGet = append(columnNamesToGet, ColumnName(field.Name))
 	}
 
 	// Get the fields from the database.
-	queryFields := strings.Join(fieldsToGet, ", ")
-	sql := fmt.Sprintf("SELECT %s, COUNT(*) OVER() AS total FROM %s", queryFields, r.table)
+	queryFields := strings.Join(columnNamesToGet, ", ")
+	sql := fmt.Sprintf("SELECT %s FROM %s", queryFields, r.table)
 	args := []interface{}{}
 	argIdx := 1
 
@@ -178,51 +164,25 @@ func (r *GenericPostgresRepository[T]) List(ctx context.Context, query krest.Col
 		sql += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, query.Offset)
 	}
+	log.Printf("query: %s, args: %v", sql, args)
 
 	// Query the database for all projects.
-	log.Printf("query: %s, args: %v", sql, args)
-	rows, err := r.db.Query(sql, args...)
+	resources := []T{}
+	err = r.db.Select(&resources, sql, args...)
 	if err != nil {
-		return []T{}, err
+		return []T{}, fmt.Errorf("failed to query database: %v", err)
 	}
-	defer rows.Close()
 
-	// Scan the row into the task struct.
-	var task T
-	destFields := make([]interface{}, len(fieldsToGet))
-	taskValue := reflect.ValueOf(&task).Elem() // Get the value of the task struct.
-	log.Printf("getting fields: %v", fieldsToGet)
-
-	for i, field := range fieldsToGet {
-		// Match the field with the struct field by name.
-		structField := taskValue.FieldByNameFunc(func(s string) bool {
-			// Match struct field name with the database field (case-sensitive check).
-			return strings.EqualFold(s, field)
-		})
-
-		if structField.IsValid() {
-			destFields[i] = structField.Addr().Interface() // Get address to assign value via Scan.
-		} else {
-			return []T{}, fmt.Errorf("field %s not found in task struct", field)
-		}
-	}
-	log.Printf("dest fields: %v", destFields)
-
-	// Iterate over the rows and create a slice of projects.
-	tasks := []T{}
+	// Get the total count of resources.
 	var total int
-	destFields = append(destFields, &total) // add the &total
-	for rows.Next() {
-		var resource T
-		err := rows.Scan(destFields...)
-		if err != nil {
-			return []T{}, err
-		}
-		tasks = append(tasks, resource)
+	totalQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", r.table)
+	err = r.db.Get(&total, totalQuery)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total users: %v", err)
 	}
 
 	// The task should now be populated with the selected fields.
-	return tasks, nil
+	return resources, nil
 }
 
 func (r *GenericPostgresRepository[T]) Create(ctx context.Context, user T) (T, error) {

@@ -58,6 +58,14 @@ func GetKrestTags(field reflect.StructField) []string {
 }
 
 /*
+* Returns the column name for a field name.
+* By default, the column name is the snake_case version of the field name.
+ */
+func ColumnName(fieldName string) string {
+	return ToSnakeCase(fieldName)
+}
+
+/*
 * Helper function for converting a field to a SQL column.
  */
 func FieldToColumn(field reflect.StructField) string {
@@ -66,7 +74,7 @@ func FieldToColumn(field reflect.StructField) string {
 		return ""
 	}
 
-	columnName := ToSnakeCase(field.Name)
+	columnName := ColumnName(field.Name)
 	typeName, err := GoTypeToSQLType(field.Type)
 	if err != nil {
 		panic(err)
