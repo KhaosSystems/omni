@@ -124,6 +124,11 @@ func Schema[T any]() string {
 		}
 	}
 
+	// Make sure the schema has a primary key.
+	if !strings.Contains(schema, "PRIMARY KEY") {
+		panic("Schema does not have a primary key. Add the krest_orm tag `pk` to a field.")
+	}
+
 	// Remove the trailing comma and space.
 	if len(schema) > 1 {
 		schema = schema[:len(schema)-2]

@@ -6,7 +6,7 @@ import "github.com/google/uuid"
 * Project represents a project in the system.
  */
 type Project struct {
-	UUID uuid.UUID `json:"uuid"`
+	UUID uuid.UUID `json:"uuid" krest_orm:"pk"`
 	Name string    `json:"name"`
 
 	/*

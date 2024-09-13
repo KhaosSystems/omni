@@ -3,6 +3,7 @@ package krest
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strconv"
@@ -97,6 +98,7 @@ func (h *Handler[T]) Create(w http.ResponseWriter, r *http.Request) {
 	// Create the resource.
 	createdResource, err := h.service.Create(r.Context(), resource)
 	if err != nil {
+		log.Printf("Failed to create resource: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

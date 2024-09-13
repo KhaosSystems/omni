@@ -114,16 +114,17 @@ func (r *GenericPostgresRepository[T]) Get(ctx context.Context, id uuid.UUID, qu
 
 	// Get the fields from the database.
 	queryFields := strings.Join(columnNamesToGet, ", ")
-	sql := fmt.Sprintf("SELECT %s FROM tasks WHERE uuid = $1", queryFields)
+	sql := fmt.Sprintf("SELECT %s FROM %s WHERE uuid = $1", queryFields, r.table)
+	log.Printf("query: %s, id: %s", sql, id)
 
 	// Execute the query.
-	resource := *new(T)
-	err = r.db.Select(resource, sql, id)
+	resource := new(T)
+	err = r.db.Get(resource, sql, id)
 	if err != nil {
 		return *new(T), fmt.Errorf("failed to query database: %v", err)
 	}
 
-	return resource, nil
+	return *resource, nil
 }
 
 func (r *GenericPostgresRepository[T]) List(ctx context.Context, query krest.CollectionQuery) ([]T, error) {
@@ -194,6 +195,22 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 		return *new(T), fmt.Errorf("type %T is not a struct", resource)
 	}
 
+	// Auto-generate primary key.
+	primaryKeyField, err := krest.ReflectPrimaryKeyField[T]()
+	if err != nil {
+		return *new(T), fmt.Errorf("failed to get primary key field: %v", err)
+	}
+	switch primaryKeyField.Type {
+	case reflect.TypeOf(uuid.UUID{}):
+		// Generate a new UUID.
+		resourceValue.FieldByName(primaryKeyField.Name).Set(reflect.ValueOf(uuid.New()))
+	default:
+		return *new(T), fmt.Errorf("unsupported primary key type: %s", primaryKeyField.Type)
+	}
+
+	// TODO: A cleaner way to do this, is getting the fields from the shema, instead of though reflection..
+	// TODO: This is a bit of a mess, and should be cleaned up.
+
 	// Prepare slices for column names and placeholders
 	columnNames := []string{}
 	placeholders := []string{}
@@ -207,6 +224,12 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 
 		// Skip unexported fields
 		if !fieldValue.CanInterface() {
+			continue
+		}
+
+		// Skip if krest_orm:"ignore"
+		tags := GetKrestTags(field)
+		if slices.Contains(tags, "ignore") {
 			continue
 		}
 
@@ -227,10 +250,11 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 		strings.Join(columnNames, ", "),
 		strings.Join(placeholders, ", "),
 	)
+	fmt.Printf("query: %s, values: %s\n", query, values)
 
 	// Execute the query and return the created resource
 	var createdResource T
-	err := r.db.GetContext(ctx, &createdResource, query, values...)
+	err = r.db.GetContext(ctx, &createdResource, query, values...)
 	if err != nil {
 		return *new(T), fmt.Errorf("failed to insert resource into database: %v", err)
 	}

@@ -54,3 +54,23 @@ func ReflectNonExpandableFields[T any]() ([]reflect.StructField, error) {
 
 	return fields, nil
 }
+
+/*
+* ReflectPrimaryKeyField returns the primary key field of a struct type.
+ */
+func ReflectPrimaryKeyField[T any]() (reflect.StructField, error) {
+	typ := reflect.TypeOf((*T)(nil)).Elem() // Get the type of T without needing a value.
+	if typ.Kind() != reflect.Struct {
+		return reflect.StructField{}, fmt.Errorf("type %s is not a struct", typ.Name())
+	}
+
+	// Iterate over the fields of the struct.
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.Tag.Get("krest_orm") == "pk" {
+			return field, nil
+		}
+	}
+
+	return reflect.StructField{}, fmt.Errorf("no primary key field found for type %s", typ.Name())
+}
