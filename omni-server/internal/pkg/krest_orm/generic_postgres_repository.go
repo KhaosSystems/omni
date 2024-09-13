@@ -185,8 +185,57 @@ func (r *GenericPostgresRepository[T]) List(ctx context.Context, query krest.Col
 	return resources, nil
 }
 
-func (r *GenericPostgresRepository[T]) Create(ctx context.Context, user T) (T, error) {
-	return *new(T), errors.ErrUnsupported
+func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (T, error) {
+	// Use reflection to get the value and type of the resource
+	resourceValue := reflect.ValueOf(&resource).Elem()
+	resourceType := resourceValue.Type()
+
+	if resourceType.Kind() != reflect.Struct {
+		return *new(T), fmt.Errorf("type %T is not a struct", resource)
+	}
+
+	// Prepare slices for column names and placeholders
+	columnNames := []string{}
+	placeholders := []string{}
+	values := []interface{}{}
+	argIdx := 1
+
+	// Iterate over the struct fields
+	for i := 0; i < resourceValue.NumField(); i++ {
+		field := resourceType.Field(i)
+		fieldValue := resourceValue.Field(i)
+
+		// Skip unexported fields
+		if !fieldValue.CanInterface() {
+			continue
+		}
+
+		// Use the field name as the column name or map to a proper DB column name using a helper
+		columnName := ColumnName(field.Name)
+
+		// Append column names and placeholders
+		columnNames = append(columnNames, columnName)
+		placeholders = append(placeholders, fmt.Sprintf("$%d", argIdx))
+		values = append(values, fieldValue.Interface())
+		argIdx++
+	}
+
+	// Generate the SQL query
+	query := fmt.Sprintf(
+		"INSERT INTO %s (%s) VALUES (%s) RETURNING *",
+		r.table,
+		strings.Join(columnNames, ", "),
+		strings.Join(placeholders, ", "),
+	)
+
+	// Execute the query and return the created resource
+	var createdResource T
+	err := r.db.GetContext(ctx, &createdResource, query, values...)
+	if err != nil {
+		return *new(T), fmt.Errorf("failed to insert resource into database: %v", err)
+	}
+
+	return createdResource, nil
 }
 
 func (r *GenericPostgresRepository[T]) Update(ctx context.Context, id uuid.UUID, user T) (T, error) {
