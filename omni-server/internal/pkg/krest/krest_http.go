@@ -111,6 +111,23 @@ func (h *Handler[T]) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler[T]) Delete(w http.ResponseWriter, r *http.Request) {
+	// Parse the uuid from the url param  [DELETE /v1/tasks/{uuid}]
+	uuidStr := chi.URLParam(r, "uuid")
+	uuid, err := uuid.Parse(uuidStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Delete the resource.
+	err = h.service.Delete(r.Context(), uuid)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Write the response.
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Query paramers that can always be used.

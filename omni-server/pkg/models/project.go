@@ -8,6 +8,7 @@ import "github.com/google/uuid"
 type Project struct {
 	UUID uuid.UUID `json:"uuid" krest_orm:"pk"`
 	Name string    `json:"name"`
+	//Tasks []*Task   `json:"tasks" krest:"expandable" krest_orm:"fk:Project"`
 
 	/*
 	* The project key is a short, human-readable identifier for the project.
