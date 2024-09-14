@@ -90,11 +90,11 @@ func ColumnSchemaFromField(field reflect.StructField) (ColumnSchema, error) {
 
 	// Constraints.
 	tags := GetKrestTags(field)
-	if !slices.Contains(tags, "pk") {
+	if slices.Contains(tags, "pk") {
 		builder.AddConstraint("PRIMARY KEY")
 	}
 
-	if !slices.Contains(tags, "fk") {
+	if slices.Contains(tags, "fk") {
 		builder.AddConstraint("FOREIGN KEY")
 	}
 
@@ -123,6 +123,12 @@ func TableSchemaFromStruct[T any]() (TableSchema, error) {
 	// Columns.
 	for i := 0; i < tType.NumField(); i++ {
 		field := tType.Field(i)
+
+		// Skip "ignore" fields.
+		tags := GetKrestTags(field)
+		if slices.Contains(tags, "ignore") {
+			continue
+		}
 
 		// Convert the field to a column schema.
 		colSchema, err := ColumnSchemaFromField(field)

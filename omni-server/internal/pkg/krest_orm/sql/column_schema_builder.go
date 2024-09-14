@@ -16,7 +16,7 @@ type ColumnSchema struct {
 
 func (c ColumnSchema) String() string {
 	constraints := strings.Join(c.Constraints, " ")
-	return fmt.Sprintf("%s %s %s", c.Name, c.Type, constraints)
+	return strings.TrimSpace(fmt.Sprintf("%s %s %s", c.Name, c.Type, constraints))
 }
 
 /*

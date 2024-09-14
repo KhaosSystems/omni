@@ -37,7 +37,7 @@ func NewGenericPostgresRepository[T any](db *sql.DB) *GenericPostgresRepository[
 	// Check if table exists, and matches schema.
 	// TODO: Throw error if schema does not match.
 	// TODO: Add a migration system.
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", schema.Name, schema.String())
+	sql := schema.CreateTableQuery() // Returns a CREATE TABLE query, might be a good idea to rename some stuff here.
 	log.Printf("creating table: %s", sql)
 	_, err = db.Exec(sql)
 	if err != nil {
@@ -82,7 +82,7 @@ func (r *GenericPostgresRepository[T]) FieldsToGet(expand []string) ([]reflect.S
 	}
 	for _, field := range expandableFields {
 		// Add if requested.
-		fieldColumnName := ColumnName(field.Name)
+		fieldColumnName := krest_sql_helpers.ColumnName(field.Name)
 		if slices.Contains(expand, fieldColumnName) {
 			fields = append(fields, field)
 		}
