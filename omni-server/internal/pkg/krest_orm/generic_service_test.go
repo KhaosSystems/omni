@@ -23,7 +23,7 @@ type TestType struct {
 	Name string    `json:"name"`
 }
 
-func TestMain(m *testing.M) {
+func setup() (*krest_orm.GenericService[TestType], error) {
 	var err error
 	db, err = sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -34,22 +34,22 @@ func TestMain(m *testing.M) {
 	repository := krest_orm.NewGenericPostgresRepository[TestType](db)
 	service = krest_orm.NewGenericService(repository)
 
-	// Run the tests
-	code := m.Run()
-	// Cleanup
-	db.Close()
-	os.Exit(code)
+	return service, nil
 }
 
 func TestCreate(t *testing.T) {
-	ctx := context.Background()
+	service, err := setup()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
 	id := uuid.New()
 	testData := TestType{
 		UUID: id,
 		Name: "TestName",
 	}
 
-	createdData, err := service.Create(ctx, testData)
+	createdData, err := service.Create(context.Background(), testData)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -60,19 +60,23 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	ctx := context.Background()
+	service, err := setup()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
 	id := uuid.New()
 	testData := TestType{
 		UUID: id,
 		Name: "TestName",
 	}
 
-	_, err := service.Create(ctx, testData)
+	_, err = service.Create(context.Background(), testData)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	gotData, err := service.Get(ctx, id, krest.ResourceQuery{})
+	gotData, err := service.Get(context.Background(), id, krest.ResourceQuery{})
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -83,7 +87,11 @@ func TestGet(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	ctx := context.Background()
+	service, err := setup()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
 	id1 := uuid.New()
 	id2 := uuid.New()
 
@@ -97,17 +105,17 @@ func TestList(t *testing.T) {
 		Name: "TestName2",
 	}
 
-	_, err := service.Create(ctx, testData1)
+	_, err = service.Create(context.Background(), testData1)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	_, err = service.Create(ctx, testData2)
+	_, err = service.Create(context.Background(), testData2)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	gotData, err := service.List(ctx, krest.CollectionQuery{})
+	gotData, err := service.List(context.Background(), krest.CollectionQuery{})
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -133,14 +141,18 @@ func TestList(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx := context.Background()
+	service, err := setup()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
 	id := uuid.New()
 	testData := TestType{
 		UUID: id,
 		Name: "TestName",
 	}
 
-	_, err := service.Create(ctx, testData)
+	_, err = service.Create(context.Background(), testData)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
@@ -150,7 +162,7 @@ func TestUpdate(t *testing.T) {
 		Name: "UpdatedName",
 	}
 
-	result, err := service.Update(ctx, id, updatedData)
+	result, err := service.Update(context.Background(), id, updatedData)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -161,24 +173,28 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ctx := context.Background()
+	service, err := setup()
+	if err != nil {
+		t.Fatalf("Setup failed: %v", err)
+	}
+
 	id := uuid.New()
 	testData := TestType{
 		UUID: id,
 		Name: "TestName",
 	}
 
-	_, err := service.Create(ctx, testData)
+	_, err = service.Create(context.Background(), testData)
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
 
-	err = service.Delete(ctx, id)
+	err = service.Delete(context.Background(), id)
 	if err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	_, err = service.Get(ctx, id, krest.ResourceQuery{})
+	_, err = service.Get(context.Background(), id, krest.ResourceQuery{})
 	if err == nil {
 		t.Fatalf("Expected error when getting deleted item, got nil")
 	}

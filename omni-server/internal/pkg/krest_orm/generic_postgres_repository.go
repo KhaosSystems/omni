@@ -38,7 +38,6 @@ func NewGenericPostgresRepository[T any](db *sql.DB) *GenericPostgresRepository[
 	// TODO: Throw error if schema does not match.
 	// TODO: Add a migration system.
 	sql := schema.CreateTableQuery()
-	log.Printf("creating table: %s", sql)
 	_, err = db.Exec(sql)
 	if err != nil {
 		log.Fatalf("failed to create table %s: %v", schema.Name, err)
@@ -119,7 +118,6 @@ func (r *GenericPostgresRepository[T]) Get(ctx context.Context, id uuid.UUID, qu
 	// Get the fields from the database.
 	queryFields := strings.Join(columnNamesToGet, ", ")
 	sql := fmt.Sprintf("SELECT %s FROM %s WHERE uuid = $1", queryFields, r.tableSchema.Name)
-	log.Printf("query: %s, id: %s", sql, id)
 
 	// Execute the query.
 	resource := new(T)
