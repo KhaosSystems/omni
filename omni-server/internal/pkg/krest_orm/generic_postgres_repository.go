@@ -37,7 +37,7 @@ func NewGenericPostgresRepository[T any](db *sql.DB) *GenericPostgresRepository[
 	// Check if table exists, and matches schema.
 	// TODO: Throw error if schema does not match.
 	// TODO: Add a migration system.
-	sql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", schema.Name, schema.String())
+	sql := schema.CreateTableQuery()
 	log.Printf("creating table: %s", sql)
 	_, err = db.Exec(sql)
 	if err != nil {
@@ -82,7 +82,7 @@ func (r *GenericPostgresRepository[T]) FieldsToGet(expand []string) ([]reflect.S
 	}
 	for _, field := range expandableFields {
 		// Add if requested.
-		fieldColumnName := ColumnName(field.Name)
+		fieldColumnName := krest_sql_helpers.ColumnName(field.Name)
 		if slices.Contains(expand, fieldColumnName) {
 			fields = append(fields, field)
 		}
@@ -199,17 +199,11 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 		return *new(T), fmt.Errorf("type %T is not a struct", resource)
 	}
 
-	// Auto-generate primary key.
-	primaryKeyField, err := krest.ReflectPrimaryKeyField[T]()
+	// Make sure the resource has a primary key
+	// TODO: Maybe this should be done in the service layer- or with GENERATED.
+	resource, err := krest_sql_helpers.EnsurePrimaryKey(resource)
 	if err != nil {
-		return *new(T), fmt.Errorf("failed to get primary key field: %v", err)
-	}
-	switch primaryKeyField.Type {
-	case reflect.TypeOf(uuid.UUID{}):
-		// Generate a new UUID.
-		resourceValue.FieldByName(primaryKeyField.Name).Set(reflect.ValueOf(uuid.New()))
-	default:
-		return *new(T), fmt.Errorf("unsupported primary key type: %s", primaryKeyField.Type)
+		return *new(T), fmt.Errorf("failed to ensure primary key: %v", err)
 	}
 
 	// TODO: A cleaner way to do this, is getting the fields from the shema, instead of though reflection..
