@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { enhance } from "$app/forms";
     import Card from "@khaossystems/matter/components/card";
 
     let { data } = $props();
@@ -17,12 +18,17 @@
                         <div class="text-lg">{project.name || project.title}</div>
                         <div class="text-xs">{project.uuid}</div>
                     </Card>
+                  
                 </a>
+                <form method="POST" action="?/deleteProject">
+                    <input type="hidden" name="uuid" value={project.uuid} />
+                    <button>Delete</button>
+                </form>
             {/each}
         {/if}
     </div>
 
-    <form method="POST" action="?/createProject">
+    <form method="POST" action="?/createProject" use:enhance>
         <input type="text" name="name" />
         <button>Create</button>
     </form>

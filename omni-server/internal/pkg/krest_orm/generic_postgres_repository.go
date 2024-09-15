@@ -37,6 +37,7 @@ func NewGenericPostgresRepository[T any](db *sql.DB) *GenericPostgresRepository[
 	// TODO: Throw error if schema does not match.
 	// TODO: Add a migration system.
 	sql := schema.CreateTableQuery()
+	log.Printf("creating table: %s", sql)
 	_, err = db.Exec(sql)
 	if err != nil {
 		log.Fatalf("failed to create table %s: %v", schema.Name, err)
@@ -223,8 +224,8 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 		}
 
 		// Skip if krest_orm:"ignore"
-		tags := krest_sql_helpers.GetKrestTags(field)
-		if slices.Contains(tags, "ignore") {
+		tags := krest_sql_helpers.GetKrestTags(field) // tags is a map
+		if _, ok := tags["ignore"]; ok {
 			continue
 		}
 
@@ -249,6 +250,7 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 
 	// Execute the query and return the created resource
 	var createdResource T
+	log.Printf("query: %s, values: %v", query, values)
 	err = r.db.GetContext(ctx, &createdResource, query, values...)
 	if err != nil {
 		return *new(T), fmt.Errorf("failed to insert resource into database: %v", err)
@@ -283,7 +285,7 @@ func (r *GenericPostgresRepository[T]) Update(ctx context.Context, id uuid.UUID,
 
 		// Skip if krest_orm:"ignore"
 		tags := krest_sql_helpers.GetKrestTags(field)
-		if slices.Contains(tags, "ignore") {
+		if _, ok := tags["ignore"]; ok {
 			continue
 		}
 

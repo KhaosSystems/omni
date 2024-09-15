@@ -3,7 +3,6 @@ package sql
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 
 	"github.com/gertd/go-pluralize"
@@ -14,10 +13,22 @@ import (
 /*
 * Returns all krest_orm tags for a given field.
  */
-func GetKrestTags(field reflect.StructField) []string {
+func GetKrestTags(field reflect.StructField) map[string]string {
 	tags := field.Tag.Get("krest_orm")
-	//fmt.Printf("%s: %s", field.Name, tags)
-	return strings.Split(tags, ",")
+	pairs := strings.Split(tags, ",")
+
+	// Parse the key-value pairs.
+	tagsMap := make(map[string]string)
+	for _, pair := range pairs {
+		kv := strings.Split(pair, ":")
+		if len(kv) == 2 {
+			tagsMap[kv[0]] = kv[1]
+		} else {
+			tagsMap[kv[0]] = ""
+		}
+	}
+
+	return tagsMap
 }
 
 /*
@@ -90,12 +101,20 @@ func ColumnSchemaFromField(field reflect.StructField) (ColumnSchema, error) {
 
 	// Constraints.
 	tags := GetKrestTags(field)
-	if slices.Contains(tags, "pk") {
+	if _, ok := tags["pk"]; ok {
 		builder.AddConstraint("PRIMARY KEY")
 	}
 
-	if slices.Contains(tags, "fk") {
-		builder.AddConstraint("FOREIGN KEY")
+	if _, ok := tags["unique"]; ok {
+		builder.AddConstraint("UNIQUE")
+	}
+
+	if _, ok := tags["notnull"]; ok {
+		builder.AddConstraint("NOT NULL")
+	}
+
+	if ref, ok := tags["fk"]; ok {
+		builder.AddConstraint(fmt.Sprintf("REFERENCES %s", ref))
 	}
 
 	// Build.
@@ -126,7 +145,7 @@ func TableSchemaFromStruct[T any]() (TableSchema, error) {
 
 		// Skip "ignore" fields.
 		tags := GetKrestTags(field)
-		if slices.Contains(tags, "ignore") {
+		if _, ok := tags["ignore"]; ok {
 			continue
 		}
 

@@ -14,7 +14,7 @@ export async function load({ cookies, params }) {
     let tasks = []
     try {
         tasks = await krest.getCollection("v1/tasks", { expand: ["summary"] })
-        //tasks = tasks.filter(task => task.project.uuid === "7ac2c226-9900-4690-9053-8583f89971a4")
+        tasks = tasks.filter(task => task.project_id === "463e2ad1-49c1-454f-b914-5e6c6361841c")
     } catch (error) {
         console.error('Error fetching tasks:', error)
         tasks = []
@@ -39,7 +39,7 @@ export const actions = {
         const summary = data.get('summary')
         const description = data.get('description')
         
-        const task = { summary, description, project: { uuid: "7ac2c226-9900-4690-9053-8583f89971a4" } }
+        const task = { summary, description, project_id: "463e2ad1-49c1-454f-b914-5e6c6361841c" }
 
         try {
             await createResource('v1/tasks', task)

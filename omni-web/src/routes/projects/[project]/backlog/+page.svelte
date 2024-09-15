@@ -30,10 +30,10 @@
             <div class="inline">
                 <SquareCheck class="inline" size="16" />ALCH-0
             </div>
-            <form method="POST" action="?/updateTaskSummary" id={`update-task-summary-form-${task.uuid}`}  >
-                <input type="hidden" name="uuid" value={task.uuid} use:enhance />
+            <form class="flex-grow" method="POST" action="?/updateTaskSummary" id={`update-task-summary-form-${task.uuid}`} use:enhance>
+                <input type="hidden" name="uuid" value={task.uuid} />
                 <Input
-                    class="flex-grow"
+                    class="w-full"
                     type="text"
                     inputSize="xs"
                     style="ghost"
@@ -43,11 +43,11 @@
                         const form = document.getElementById(`update-task-summary-form-${task.uuid}`) as HTMLFormElement;
                         form && form.submit();
                     }}
-                    
                 />
+                <input type="hidden" name="description" value="todo" />
             </form>
             <Select class="text-xs px-1 py-0 h-fit" options={["TO DO", "IN PROGRESS", "DONE"]} value={task.status} onchange={(event: Event) => {
-                console.log(event.target.value)
+                //console.log(event.target.value)
             }} />
             <div class="text-xs bg-orange-500 font-semibold rounded px-1 text-white">
                 {task.status} <CheveronDown class="inline -translate-y-[1px]" size=14 strokeWidth=4 />
