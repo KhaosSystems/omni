@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit'
-import { getResource, createResource, deleteResource } from '$lib/khaos/krest.js'
+import { getResource, createResource, deleteResource, updateResource } from '$lib/khaos/krest.js'
 import * as db from '$lib/server/db'
 import * as krest from '$lib/khaos/krest.js'
 
@@ -57,6 +57,19 @@ export const actions = {
             console.error(error)
             return { status: 500 }
         }
+    },
+    updateTaskSummary: async ({ cookies, request }) => {
+        const data = await request.formData()
+        const uuid = data.get('uuid')?.toString() ?? ''
+        const summary = data.get('summary')?.toString() ?? ''
+        const task = { summary }
+        try {
+            await updateResource(`v1/tasks`, uuid, task)
+        } catch (error) {
+            console.error(error)
+            return { status: 500 }
+        }
+    
     },
     logout: async ({ cookies }) => {
         console.log('Logging out...')

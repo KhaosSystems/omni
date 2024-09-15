@@ -84,6 +84,23 @@ export async function createResource(endpoint: string, data: any) {
   }
 }
 
+export async function updateResource(endpoint: string, uuid: string, data: any) {
+  const res = await fetch(`http://localhost:30090/${endpoint}/${uuid}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (res.ok) {
+    const body = await res.json();
+    return await body.results;
+  } else {
+    throw new Error(res.statusText);
+  }
+}
+
 export async function deleteResource(endpoint: string, uuid: string) {
   const res = await fetch(`http://localhost:30090/${endpoint}/${uuid}`, {
     method: "DELETE",

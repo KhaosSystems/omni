@@ -57,7 +57,6 @@ func (h *Handler[T]) Get(w http.ResponseWriter, r *http.Request) {
 
 	// Write the response
 	WriteResourceResponse(w, http.StatusOK, resource, query, metaQuery)
-
 }
 
 func (h *Handler[T]) List(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +107,31 @@ func (h *Handler[T]) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler[T]) Update(w http.ResponseWriter, r *http.Request) {
+	// Parse the uuid from the url param  [PATCH /v1/tasks/{uuid}]
+	uuidStr := chi.URLParam(r, "uuid")
+	uuid, err := uuid.Parse(uuidStr)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Parse the request body.
+	var resource T
+	err = json.NewDecoder(r.Body).Decode(&resource)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Update the resource.
+	updatedResource, err := h.service.Update(r.Context(), uuid, resource)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Write the response.
+	WriteResourceResponse(w, http.StatusOK, updatedResource, ResourceQuery{}, MetaQuery{})
 }
 
 func (h *Handler[T]) Delete(w http.ResponseWriter, r *http.Request) {

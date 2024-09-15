@@ -42,6 +42,16 @@ func (b *ColumnSchemaBuilder) Type(sqlType string) *ColumnSchemaBuilder {
 	return b
 }
 
+func (b *ColumnSchemaBuilder) PrimaryKey() *ColumnSchemaBuilder {
+	b.constraints = append(b.constraints, "PRIMARY KEY")
+	return b
+}
+
+func (b *ColumnSchemaBuilder) ForeignKey() *ColumnSchemaBuilder {
+	b.constraints = append(b.constraints, "FOREIGN KEY")
+	return b
+}
+
 func (b *ColumnSchemaBuilder) AddConstraint(constraint string) *ColumnSchemaBuilder {
 	b.constraints = append(b.constraints, constraint)
 	return b

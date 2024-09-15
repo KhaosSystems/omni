@@ -9,7 +9,6 @@ type Task struct {
 	UUID        uuid.UUID `json:"uuid" krest_orm:"pk"`
 	Summary     string    `json:"summary" krest:"expandable"`
 	Description string    `json:"description" krest:"expandable"`
-	Type        *TaskType `json:"type" krest:"expandable" krest_orm:"custom:'task_type UUID REFERENCES task_types(uuid)'"`
 	Status      *Status   `json:"status" krest:"expandable" krest_orm:"ignore"`
 	Project     *Project  `json:"project" krest:"expandable" krest_orm:"ignore"`
 }

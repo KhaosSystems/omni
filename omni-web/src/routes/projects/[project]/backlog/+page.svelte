@@ -6,6 +6,7 @@
     import Select from "@khaossystems/matter/components/select";
     import SquareCheck from "lucide-svelte/icons/square-check";
     import CheveronDown from "lucide-svelte/icons/chevron-down";
+    import { enhance } from "$app/forms";
 
     let { data } = $props();
     let tasks = $state(data.tasks);
@@ -14,7 +15,7 @@
     let taskInTheMaking: any | null = $state(null);
 </script>
 
-<div><a href="/projects">Projects</a> / <a href={`/projects/${data.project.uuid}`}>{data.project.title}</a></div>
+<div class="text-sm"><a href="/projects">Projects</a> / <a href={`/projects/${data.project.uuid}`}>{data.project.name}</a></div>
 <h1 class="text-2xl mb-2">Backlog</h1>
 
 <Card class="bg-neutral-900 full-w">
@@ -29,13 +30,22 @@
             <div class="inline">
                 <SquareCheck class="inline" size="16" />ALCH-0
             </div>
-            <Input
-                class="flex-grow"
-                type="text"
-                inputSize="xs"
-                style="ghost"
-                bind:value={task.summary}
-            />
+            <form method="POST" action="?/updateTaskSummary" id={`update-task-summary-form-${task.uuid}`}  >
+                <input type="hidden" name="uuid" value={task.uuid} use:enhance />
+                <Input
+                    class="flex-grow"
+                    type="text"
+                    inputSize="xs"
+                    style="ghost"
+                    bind:value={task.summary}
+                    name="summary"
+                    onchange={(event: Event) => {
+                        const form = document.getElementById(`update-task-summary-form-${task.uuid}`) as HTMLFormElement;
+                        form && form.submit();
+                    }}
+                    
+                />
+            </form>
             <Select class="text-xs px-1 py-0 h-fit" options={["TO DO", "IN PROGRESS", "DONE"]} value={task.status} onchange={(event: Event) => {
                 console.log(event.target.value)
             }} />

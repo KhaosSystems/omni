@@ -141,3 +141,30 @@ func TableSchemaFromStruct[T any]() (TableSchema, error) {
 
 	return builder.Build()
 }
+
+// EnsurePrimaryKey sets the primary key field to a new UUID if it's not already set.
+func EnsurePrimaryKey[T any](resource T) (T, error) {
+	// Reflect on the resource to access its fields.
+	resourceValue := reflect.ValueOf(&resource).Elem()
+
+	// Get the primary key field.
+	primaryKeyField, err := krest.ReflectPrimaryKeyField[T]()
+	if err != nil {
+		return resource, fmt.Errorf("failed to get primary key field: %v", err)
+	}
+
+	// Ensure the primary key field is of the expected type.
+	if primaryKeyField.Type != reflect.TypeOf(uuid.UUID{}) {
+		return resource, fmt.Errorf("unsupported primary key type: %s", primaryKeyField.Type)
+	}
+
+	// Get the current value of the primary key field.
+	currentValue := resourceValue.FieldByName(primaryKeyField.Name).Interface()
+
+	// If the current value is a zero value (uuid.Nil), set it to a new UUID.
+	if currentValue == uuid.Nil {
+		resourceValue.FieldByName(primaryKeyField.Name).Set(reflect.ValueOf(uuid.New()))
+	}
+
+	return resource, nil
+}

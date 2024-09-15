@@ -14,16 +14,16 @@ type TableSchema struct {
 }
 
 func (s TableSchema) ColumnDefinitions() []string {
-	definitions := []string{}
-	for _, column := range s.Columns {
-		definitions = append(definitions, column.String())
+	columns := make([]string, len(s.Columns))
+	for i, column := range s.Columns {
+		columns[i] = column.String()
 	}
-	return definitions
+	return columns
 }
 
 func (s TableSchema) CreateTableQuery() string {
 	columns := strings.Join(s.ColumnDefinitions(), ", ")
-	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s)", s.Name, columns)
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (%s);", s.Name, columns)
 }
 
 /*
@@ -50,11 +50,11 @@ func (b *TableSchemaBuilder) Column(schema ColumnSchema) *TableSchemaBuilder {
 
 func (b *TableSchemaBuilder) Build() (TableSchema, error) {
 	if b.name == "" {
-		return TableSchema{}, fmt.Errorf("table name is required")
+		return TableSchema{}, fmt.Errorf("Table name is required")
 	}
 
 	if len(b.columns) == 0 {
-		return TableSchema{}, fmt.Errorf("at least one column is required (table: %s)", b.name)
+		return TableSchema{}, fmt.Errorf("At least one column is required (name: %s)", b.name)
 	}
 
 	return TableSchema{

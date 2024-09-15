@@ -8,7 +8,6 @@ package krest_orm
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -37,8 +36,7 @@ func NewGenericPostgresRepository[T any](db *sql.DB) *GenericPostgresRepository[
 	// Check if table exists, and matches schema.
 	// TODO: Throw error if schema does not match.
 	// TODO: Add a migration system.
-	sql := schema.CreateTableQuery() // Returns a CREATE TABLE query, might be a good idea to rename some stuff here.
-	log.Printf("creating table: %s", sql)
+	sql := schema.CreateTableQuery()
 	_, err = db.Exec(sql)
 	if err != nil {
 		log.Fatalf("failed to create table %s: %v", schema.Name, err)
@@ -119,7 +117,6 @@ func (r *GenericPostgresRepository[T]) Get(ctx context.Context, id uuid.UUID, qu
 	// Get the fields from the database.
 	queryFields := strings.Join(columnNamesToGet, ", ")
 	sql := fmt.Sprintf("SELECT %s FROM %s WHERE uuid = $1", queryFields, r.tableSchema.Name)
-	log.Printf("query: %s, id: %s", sql, id)
 
 	// Execute the query.
 	resource := new(T)
@@ -169,7 +166,7 @@ func (r *GenericPostgresRepository[T]) List(ctx context.Context, query krest.Col
 		sql += fmt.Sprintf(" OFFSET $%d", argIdx)
 		args = append(args, query.Offset)
 	}
-	log.Printf("query: %s, args: %v", sql, args)
+	//log.Printf("query: %s, args: %v", sql, args)
 
 	// Query the database for all projects.
 	resources := []T{}
@@ -199,17 +196,11 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 		return *new(T), fmt.Errorf("type %T is not a struct", resource)
 	}
 
-	// Auto-generate primary key.
-	primaryKeyField, err := krest.ReflectPrimaryKeyField[T]()
+	// Make sure the resource has a primary key
+	// TODO: Maybe this should be done in the service layer- or with GENERATED.
+	resource, err := krest_sql_helpers.EnsurePrimaryKey(resource)
 	if err != nil {
-		return *new(T), fmt.Errorf("failed to get primary key field: %v", err)
-	}
-	switch primaryKeyField.Type {
-	case reflect.TypeOf(uuid.UUID{}):
-		// Generate a new UUID.
-		resourceValue.FieldByName(primaryKeyField.Name).Set(reflect.ValueOf(uuid.New()))
-	default:
-		return *new(T), fmt.Errorf("unsupported primary key type: %s", primaryKeyField.Type)
+		return *new(T), fmt.Errorf("failed to ensure primary key: %v", err)
 	}
 
 	// TODO: A cleaner way to do this, is getting the fields from the shema, instead of though reflection..
@@ -254,7 +245,7 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 		strings.Join(columnNames, ", "),
 		strings.Join(placeholders, ", "),
 	)
-	fmt.Printf("query: %s, values: %s\n", query, values)
+	//fmt.Printf("query: %s, values: %s\n", query, values)
 
 	// Execute the query and return the created resource
 	var createdResource T
@@ -266,8 +257,70 @@ func (r *GenericPostgresRepository[T]) Create(ctx context.Context, resource T) (
 	return createdResource, nil
 }
 
-func (r *GenericPostgresRepository[T]) Update(ctx context.Context, id uuid.UUID, user T) (T, error) {
-	return *new(T), errors.ErrUnsupported
+func (r *GenericPostgresRepository[T]) Update(ctx context.Context, id uuid.UUID, resource T) (T, error) {
+	// Use reflection to get the value and type of the resource
+	resourceValue := reflect.ValueOf(&resource).Elem()
+	resourceType := resourceValue.Type()
+
+	if resourceType.Kind() != reflect.Struct {
+		return *new(T), fmt.Errorf("type %T is not a struct", resource)
+	}
+
+	// Prepare slices for column names, placeholders, and values
+	setClauses := []string{}
+	values := []interface{}{}
+	argIdx := 1
+
+	// Iterate over the struct fields to create the SQL update query
+	for i := 0; i < resourceValue.NumField(); i++ {
+		field := resourceType.Field(i)
+		fieldValue := resourceValue.Field(i)
+
+		// Skip unexported fields
+		if !fieldValue.CanInterface() {
+			continue
+		}
+
+		// Skip if krest_orm:"ignore"
+		tags := krest_sql_helpers.GetKrestTags(field)
+		if slices.Contains(tags, "ignore") {
+			continue
+		}
+
+		// Use the field name as the column name or map to a proper DB column name using a helper
+		columnName := krest_sql_helpers.ColumnName(field.Name)
+
+		// Append the set clause and value
+		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", columnName, argIdx))
+		values = append(values, fieldValue.Interface())
+		argIdx++
+	}
+
+	// Ensure that at least one field is updated
+	if len(setClauses) == 0 {
+		return *new(T), fmt.Errorf("no fields to update for resource %v", id)
+	}
+
+	// Add the ID as the last argument for the WHERE clause
+	values = append(values, id)
+
+	// Generate the SQL query for the update
+	query := fmt.Sprintf(
+		"UPDATE %s SET %s WHERE uuid = $%d RETURNING *",
+		r.tableSchema.Name,
+		strings.Join(setClauses, ", "),
+		argIdx,
+	)
+	//fmt.Printf("query: %s, values: %v\n", query, values)
+
+	// Execute the query and return the updated resource
+	var updatedResource T
+	err := r.db.GetContext(ctx, &updatedResource, query, values...)
+	if err != nil {
+		return *new(T), fmt.Errorf("failed to update resource in database: %v", err)
+	}
+
+	return updatedResource, nil
 }
 
 func (r *GenericPostgresRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
