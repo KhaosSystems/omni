@@ -10,11 +10,11 @@ export async function load({ cookies, params }) {
     if (!sessionid || sessionid == 'invalidsessionid') {
         return redirect(303, '/login')
     }
-
+ 
     let tasks = []
     try {
-        tasks = await krest.getCollection("v1/tasks", { expand: ["summary"] })
-        tasks = tasks.filter(task => task.project_id === "463e2ad1-49c1-454f-b914-5e6c6361841c")
+        tasks = await krest.getCollection("v1/tasks", { expand: ["summary", "project_id"] })
+        tasks = tasks.filter((task) => task.project_id == params.project)
     } catch (error) {
         console.error('Error fetching tasks:', error)
         tasks = []
@@ -38,8 +38,9 @@ export const actions = {
         const data = await request.formData()
         const summary = data.get('summary')
         const description = data.get('description')
-        
-        const task = { summary, description, project_id: "463e2ad1-49c1-454f-b914-5e6c6361841c" }
+        const project_id = data.get('project_id')
+        console.log(project_id)
+        const task = { summary, description, project_id }
 
         try {
             await createResource('v1/tasks', task)

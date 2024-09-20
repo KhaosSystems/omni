@@ -71,11 +71,13 @@
     {/each}
     {#if taskInTheMaking}
         <form method="POST" action="?/addTask">
+        {JSON.stringify(data.project)}
             <input
                 type="text"
                 name="summary"
                 bind:value={taskInTheMaking.title}
             />
+            <input type="hidden" name="project_id" value={data.project.uuid} />
             <button>Create</button>
         </form>
     {:else}
